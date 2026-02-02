@@ -1,14 +1,14 @@
-use clap_verbosity_flag::Verbosity;
-use log::{error, info};
+use base64::{Engine as _, engine::general_purpose};
 use clap::Parser;
-use base64::{engine::general_purpose, Engine as _};
+use clap_verbosity_flag::Verbosity;
 use coffeeldr::{BeaconPack, CoffeeLdr};
+use log::{error, info};
 
 mod logging;
 
 /// The main command-line interface struct.
 #[derive(Parser)]
-#[clap(author="joaoviictorti", about="A COFF loader written in Rust")]
+#[clap(author = "joaoviictorti", about = "A COFF loader written in Rust")]
 pub struct Cli {
     /// The command to be executed.
     #[arg(short, long, required = true)]
@@ -50,7 +50,6 @@ fn process_input(input: &str, pack: &mut BeaconPack) -> Result<(), String> {
             }
             Err(e) => return Err(format!("Error converting to short: {e}")),
         }
-
     } else if input.starts_with("/int:") {
         let int_data = &input[5..];
         match int_data.parse::<i32>() {
@@ -60,27 +59,25 @@ fn process_input(input: &str, pack: &mut BeaconPack) -> Result<(), String> {
             }
             Err(e) => return Err(format!("Error converting to int: {e}")),
         }
-
     } else if input.starts_with("/str:") {
         let str_data = &input[5..];
-        pack.addstr(str_data).map_err(|e| format!("Error adding str: {e}"))?;
+        pack.addstr(str_data)
+            .map_err(|e| format!("Error adding str: {e}"))?;
         info!("Added string: {}", str_data);
-
     } else if input.starts_with("/wstr:") {
         let wstr_data = &input[6..];
         pack.addwstr(wstr_data);
         info!("Added wide string: {}", wstr_data);
-    
     } else if input.starts_with("/bin:") {
         let base64_data = &input[5..];
         match general_purpose::STANDARD.decode(base64_data) {
             Ok(decoded) => {
-                pack.addbin(&decoded).map_err(|e| format!("Error adding bin: {e}"))?;
+                pack.addbin(&decoded)
+                    .map_err(|e| format!("Error adding bin: {e}"))?;
                 info!("Added binary: {}", base64_data);
             }
             Err(e) => return Err(format!("Error decoding Base64: {e}")),
         }
-
     } else if input.starts_with("/bin_path:") {
         let file_path = &input[10..];
         let file_fd = std::path::Path::new(file_path);
@@ -89,9 +86,10 @@ fn process_input(input: &str, pack: &mut BeaconPack) -> Result<(), String> {
         }
         match std::fs::read(file_fd) {
             Ok(file_data) => {
-                pack.addbin(&file_data).map_err(|e| format!("Error adding bin: {e}"))?;
+                pack.addbin(&file_data)
+                    .map_err(|e| format!("Error adding bin: {e}"))?;
                 info!("Added binary file: {}", file_path);
-            },
+            }
             Err(e) => return Err(format!("Error reading file '{}': {e}", file_path)),
         }
     } else {
@@ -131,10 +129,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let (buffer, len) = if let Some(ref buf) = vec_buffer {
-         // Pass the pointer and length if buffer exists
+        // Pass the pointer and length if buffer exists
         (Some(buf.as_ptr() as *mut u8), Some(buf.len()))
     } else {
-         // No inputs, pass None
+        // No inputs, pass None
         (None, None)
     };
 

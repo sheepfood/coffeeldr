@@ -298,7 +298,7 @@ fn beacon_format_free(format: *mut Format) {
 ///
 /// Follows the behavior of Beacon’s `beacon_formt_printf`.
 #[unsafe(no_mangle)]
-unsafe extern "C" fn beacon_formt_printf(format: *mut Format, fmt: *const c_char, mut args: ...) {
+unsafe extern "C" fn beacon_formt_printf(format: *mut Format, fmt: *const c_char, args: ...) {
     if format.is_null() || fmt.is_null() {
         return;
     }
@@ -435,7 +435,7 @@ fn beacon_output(_type: c_int, data: *mut c_char, len: c_int) {
 
 /// Formats a string using Beacon’s printf mechanism and stores it.
 #[unsafe(no_mangle)]
-unsafe extern "C" fn beacon_printf(_type: c_int, fmt: *mut c_char, mut args: ...) {
+unsafe extern "C" fn beacon_printf(_type: c_int, fmt: *mut c_char, args: ...) {
     let mut str = String::new();
     printf_compat::format(fmt, args, printf_compat::output::fmt_write(&mut str));
     str.push('\0');
